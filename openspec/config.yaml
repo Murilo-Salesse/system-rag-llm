@@ -1,0 +1,37 @@
+schema: spec-driven
+
+context: |
+  Project: NotebookLM Simplificado
+  Architecture: Stateless Microservices on AWS (API Gateway -> ALB -> Spring Boot ECS Fargate)
+  Domain: RAG (Retrieval-Augmented Generation), Notebooks as logical source units, multi-turn chat
+  Tech Stack:
+    - Language & Framework: Java 21, Spring Boot 3.3+, Spring AI 1.0.0+
+    - Cloud Infrastructure: AWS (Cognito SSO with Google & GitHub IdPs, S3 for source storage, API Gateway, ALB)
+    - Database & Vectors: PostgreSQL 16 + pgvector extension with HNSW index (cosine similarity)
+    - LLM Integration: OpenAI-compatible API Contract (AWS Bedrock Converse / OpenRouter / OpenAI) - Invisible to user
+    - Async Ingestion: Async Request-Reply (HTTP 202 Accepted) for Markdown, DOCX, and Web URLs
+    - Client Communication: REST HTTP + Server-Sent Events (SSE) for real-time token streaming
+    - Security: Zero-trust, pure OAuth2 Resource Server validating Cognito JWTs (stateless)
+
+rules:
+  proposal:
+    - Must define impact on statelessness, AWS costs, and latency
+    - Must specify data models, DDL impacts, and migration scripts
+    - Must define REST HTTP contracts with request/response JSON and error states
+    - Must verify compatibility with OpenAI API contract
+  specs:
+    - Keep specifications modular per domain (auth, notebooks, sources, chat, rag)
+    - Always document async status transitions (PENDING -> PROCESSING -> READY/FAILED)
+    - Include Mermaid sequence or state diagrams for complex flows
+  tasks:
+    - Break implementation into small testable units with clear acceptance criteria
+
+operations:
+  apply:
+    guidance:
+      - Verify Flyway database migrations syntax against PostgreSQL 16 and pgvector
+      - Ensure all controllers follow stateless patterns without HTTP session storage
+      - Ensure S3 clients use AWS SDK v2 with non-blocking best practices
+  archive:
+    guidance:
+      - Update ARCHITECTURE.md and MEMORY.md before archiving completed specs

@@ -1,0 +1,606 @@
+openapi: 3.0.3
+info:
+  title: NotebookLM Simplificado API
+  description: |
+    API REST e Streaming SSE para plataforma NotebookLM Simplificado.
+    Suporta autenticação via AWS Cognito (Google/GitHub SSO), gerenciamento de notebooks,
+    ingestão assíncrona de fontes (Markdown, DOCX, Web URLs) com upload S3 e vetores no pgvector,
+    e chat RAG com SSE streaming e seleção granular de fontes ativas.
+  version: 1.0.0
+servers:
+  - url: https://api.notebooklm.internal/api/v1
+    description: API Gateway AWS (Produção)
+  - url: http://localhost:8080/api/v1
+    description: Ambiente de Desenvolvimento Local
+
+security:
+  - BearerAuth: []
+
+paths:
+  /notebooks:
+    post:
+      summary: Criar um novo notebook
+      operationId: createNotebook
+      tags: [Notebooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotebookRequest'
+      responses:
+        '201':
+          description: Notebook criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    get:
+      summary: Listar notebooks do usuário autenticado
+      operationId: listNotebooks
+      tags: [Notebooks]
+      responses:
+        '200':
+          description: Lista de notebooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotebookSummaryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /notebooks/{notebookId}:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Obter detalhes do notebook
+      operationId: getNotebook
+      tags: [Notebooks]
+      responses:
+        '200':
+          description: Detalhes do notebook
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Excluir notebook e recursos em cascata
+      operationId: deleteNotebook
+      tags: [Notebooks]
+      responses:
+        '204':
+          description: Notebook excluído com sucesso
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /notebooks/{notebookId}/sources/upload:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Upload assíncrono de arquivo (Markdown ou DOCX)
+      description: Retorna imediatamente HTTP 202 Accepted. O arquivo é gravado no S3 e processado em background.
+      operationId: uploadSourceFile
+      tags: [Sources]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo .md ou .docx (máx 25MB)
+                title:
+                  type: string
+                  description: Título opcional da fonte
+      responses:
+        '202':
+          description: Ingestão iniciada com sucesso (Async Request-Reply)
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI para consulta do status da fonte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncSourceAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /notebooks/{notebookId}/sources/url:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Ingestão assíncrona de página Web via URL
+      description: Retorna HTTP 202 Accepted. O conteúdo é baixado, limpo e processado assincronamente.
+      operationId: ingestWebUrlSource
+      tags: [Sources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebUrlSourceRequest'
+      responses:
+        '202':
+          description: Ingestão de URL iniciada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncSourceAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /notebooks/{notebookId}/sources:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Listar todas as fontes do notebook
+      operationId: listSources
+      tags: [Sources]
+      responses:
+        '200':
+          description: Lista de fontes anexadas ao notebook
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SourceItemResponse'
+
+  /notebooks/{notebookId}/sources/{sourceId}:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Consultar status de processamento da fonte (Polling)
+      operationId: getSourceStatus
+      tags: [Sources]
+      responses:
+        '200':
+          description: Status de processamento e detalhes da fonte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Excluir fonte e fragmentos vetoriais
+      operationId: deleteSource
+      tags: [Sources]
+      responses:
+        '204':
+          description: Fonte removida com sucesso
+
+  /notebooks/{notebookId}/conversations:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Criar nova conversa no notebook
+      operationId: createConversation
+      tags: [Conversations]
+      responses:
+        '201':
+          description: Conversa criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+    get:
+      summary: Listar todas as conversas do notebook
+      operationId: listConversations
+      tags: [Conversations]
+      responses:
+        '200':
+          description: Lista de conversas do notebook
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationResponse'
+
+  /notebooks/{notebookId}/conversations/{conversationId}/active-sources:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: conversationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Obter fontes ativas configuradas para a conversa
+      operationId: getActiveSources
+      tags: [Conversations]
+      responses:
+        '200':
+          description: Fontes ativas da conversa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveSourcesResponse'
+    put:
+      summary: Atualizar fontes ativas selecionadas para a conversa
+      operationId: updateActiveSources
+      tags: [Conversations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActiveSourcesRequest'
+      responses:
+        '200':
+          description: Fontes ativas atualizadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveSourcesResponse'
+
+  /notebooks/{notebookId}/conversations/{conversationId}/messages:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: conversationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Obter histórico de mensagens da conversa
+      operationId: getConversationMessages
+      tags: [Conversations]
+      responses:
+        '200':
+          description: Histórico cronológico de mensagens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationMessageResponse'
+
+  /notebooks/{notebookId}/conversations/{conversationId}/messages/stream:
+    parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: conversationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Enviar prompt e receber resposta em streaming via Server-Sent Events (SSE)
+      description: |
+        Executa busca vetorial no pgvector filtrando apenas pelas fontes ativas da conversa.
+        Alimenta o histórico recente da conversa no LLM e transmite os tokens via `text/event-stream`.
+      operationId: streamConversationMessage
+      tags: [Conversations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageStreamRequest'
+      responses:
+        '200':
+          description: Stream de eventos SSE (tokens em tempo real)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Linhas com prefixo 'data: {"token": "..."}' e evento final 'event: done'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT emitido pelo AWS Cognito User Pool
+
+  schemas:
+    CreateNotebookRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: "Pesquisa de Mercado IA"
+        description:
+          type: string
+          example: "Artigos e análises sobre agentes autônomos"
+
+    NotebookResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotebookSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        sourceCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AsyncSourceAcceptedResponse:
+      type: object
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        notebookId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        sourceType:
+          type: string
+          enum: [MARKDOWN, DOCX, WEB_URL]
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, READY, FAILED]
+        message:
+          type: string
+        statusUrl:
+          type: string
+
+    CreateWebUrlSourceRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://aws.amazon.com/bedrock/"
+        title:
+          type: string
+          example: "AWS Bedrock Overview"
+
+    SourceItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        sourceType:
+          type: string
+          enum: [MARKDOWN, DOCX, WEB_URL]
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, READY, FAILED]
+        chunkCount:
+          type: integer
+        fileSizeBytes:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+
+    SourceDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        notebookId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        sourceType:
+          type: string
+          enum: [MARKDOWN, DOCX, WEB_URL]
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, READY, FAILED]
+        chunkCount:
+          type: integer
+        errorMessage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        notebookId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    UpdateActiveSourcesRequest:
+      type: object
+      required:
+        - sourceIds
+      properties:
+        sourceIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Lista de IDs de fontes ativas para esta conversa
+
+    ActiveSourcesResponse:
+      type: object
+      properties:
+        conversationId:
+          type: string
+          format: uuid
+        activeSourceIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ConversationMessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SendMessageStreamRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          example: "Qual o principal resultado apresentado na seção 2?"
+        activeSourceIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Opcional. Se informado, atualiza a seleção de fontes ativas antes de gerar a resposta
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequestError:
+      description: Parâmetros inválidos ou formato não suportado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Token JWT do AWS Cognito ausente ou inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

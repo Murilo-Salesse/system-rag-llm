@@ -1,0 +1,24 @@
+# OS and Editor
+.DS_Store
+*.swp
+*~
+.idea/
+*.iml
+.vscode/
+
+# Draw.io backups
+.$*.bkp
+
+# Maven and Java
+**/target/
+*.class
+*.jar
+*.war
+
+# Environment files
+.env
+.env.local
+
+# LocalStack and Postgres local data
+pgdata/
+localstack_data/

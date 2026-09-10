@@ -1,0 +1,36 @@
+# Project Harness Configuration: NotebookLM Simplificado
+project:
+  name: "system-rag-llm"
+  version: "1.0.0"
+  description: "Clone simplificado do NotebookLM com Spring Boot AI, AWS Cloud, PostgreSQL + pgvector e OpenSpec SDD"
+
+harness:
+  specification_framework: "OpenSpec (openspec/)"
+  architecture_doc: "ARCHITECTURE.md"
+  agents_guide: "AGENTS.md"
+  memory_bank: "MEMORY.md"
+
+runtime:
+  java: "21"
+  framework: "Spring Boot 3.3+"
+  spring_ai: "1.0.0-M1+"
+
+cloud:
+  provider: "AWS"
+  services:
+    auth: "AWS Cognito User Pool (SSO with Google & GitHub)"
+    gateway: "Amazon API Gateway"
+    load_balancer: "Application Load Balancer (ALB)"
+    storage: "Amazon S3 (Bucket de Fontes Originais)"
+    database: "PostgreSQL 16 com extensão pgvector (HNSW Index)"
+    llm: "OpenAI-compatible Contract (AWS Bedrock / OpenRouter)"
+
+protocols:
+  api: "REST HTTP + OpenAPI 3.0"
+  streaming: "Server-Sent Events (SSE / text/event-stream)"
+  ingestion: "Async Request-Reply (HTTP 202 Accepted)"
+
+formats_allowed:
+  - "Markdown (.md, .markdown)"
+  - "Word Document (.docx)"
+  - "Web URL (HTML Scraping via Jsoup/Readability)"
