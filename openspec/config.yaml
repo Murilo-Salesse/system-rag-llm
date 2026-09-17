@@ -3,7 +3,7 @@ schema: spec-driven
 context: |
   Project: NotebookLM Simplificado
   Architecture: Stateless Microservices on AWS (API Gateway -> ALB -> Spring Boot ECS Fargate)
-  Domain: RAG (Retrieval-Augmented Generation), Notebooks as logical source units, multi-turn chat
+  Domain: RAG (Retrieval-Augmented Generation), Notebooks as logical source units, multi-turn chat, use o ponytail e o rtk também
   Tech Stack:
     - Language & Framework: Java 21, Spring Boot 3.3+, Spring AI 1.0.0+
     - Cloud Infrastructure: AWS (Cognito SSO with Google & GitHub IdPs, S3 for source storage, API Gateway, ALB)
@@ -15,6 +15,7 @@ context: |
 
 rules:
   proposal:
+    - Sempre crie uma tarefa para executar a skill java-quality-gate (.claude/skills/java-quality-gate/SKILL.md) e executar quality-gate.sh (app/backend-api/local/quality-gate.sh) antes de marcar qualquer tarefa de implementação como concluída
     - Must define impact on statelessness, AWS costs, and latency
     - Must specify data models, DDL impacts, and migration scripts
     - Must define REST HTTP contracts with request/response JSON and error states
@@ -24,14 +25,6 @@ rules:
     - Always document async status transitions (PENDING -> PROCESSING -> READY/FAILED)
     - Include Mermaid sequence or state diagrams for complex flows
   tasks:
+    - Sempre crie uma tarefa para executar a skill java-quality-gate (.claude/skills/java-quality-gate/SKILL.md) e executar quality-gate.sh (app/backend-api/local/quality-gate.sh) antes de marcar qualquer tarefa de implementação como concluída
     - Break implementation into small testable units with clear acceptance criteria
-
-operations:
-  apply:
-    guidance:
-      - Verify Flyway database migrations syntax against PostgreSQL 16 and pgvector
-      - Ensure all controllers follow stateless patterns without HTTP session storage
-      - Ensure S3 clients use AWS SDK v2 with non-blocking best practices
-  archive:
-    guidance:
-      - Update ARCHITECTURE.md and MEMORY.md before archiving completed specs
+    - Cada tarefa de implementação DEVE incluir sub-tarefa de escrever testes unitários JUnit 5 + Mockito e executar a skill java-quality-gate via quality-gate.sh antes de marcar a tarefa como concluída

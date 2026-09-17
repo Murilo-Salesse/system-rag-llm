@@ -15,18 +15,22 @@ O usuário deve poder definir quais fontes anexadas ao notebook estão ativas pa
 - **THEN** O sistema seleciona automaticamente como contexto do RAG todas as fontes do notebook com status `READY`.
 
 ### Requirement: Streaming em Tempo Real via SSE
-A resposta gerada pelo LLM deve ser enviada token a token através do protocolo Server-Sent Events (`text/event-stream`).
+A resposta gerada pelo LLM SHALL ser enviada token a token através do protocolo Server-Sent Events (`text/event-stream`) consumindo o modelo configurado via Spring AI.
 
 #### Scenario: Recepção de tokens via SSE
-- **WHEN** O cliente estabelece a conexão SSE com `Accept: text/event-stream`
-- **THEN** O servidor transmite eventos do tipo `message` contendo fragmentos de texto gerados pelo modelo e finaliza com um evento `done` contendo o ID da mensagem gerada.
+- **WHEN** O cliente envia requisição `POST /api/v1/notebooks/{notebookId}/conversations/{conversationId}/messages/stream` com `Accept: text/event-stream`
+- **THEN** O servidor transmite eventos do tipo `message` contendo fragmentos de texto gerados pelo modelo no formato `data: {"token": "texto"}` e finaliza com um evento `done` contendo `data: {"messageId": "uuid", "status": "COMPLETED"}`.
+
+#### Scenario: Acesso a conversa ou notebook de outro usuário
+- **WHEN** O usuário tenta abrir a stream de mensagens em uma conversa ou notebook que não lhe pertence
+- **THEN** O servidor rejeita a requisição imediatamente com `HTTP 404 Not Found`.
 
 ### Requirement: Persistência de Histórico de Conversa e Mensagens
-O sistema deve persistir as mensagens em `conversation_messages` com papéis `user` e `assistant`, vinculadas a `conversations`, mantendo o contexto histórico.
+O sistema SHALL persistir as mensagens em `conversation_messages` com papéis `user` e `assistant`, vinculadas a `conversations`, mantendo o contexto histórico.
 
 #### Scenario: Continuidade do diálogo com histórico
 - **WHEN** O usuário envia uma nova mensagem para uma conversa existente (`conversationId`)
-- **THEN** O backend carrega as mensagens anteriores da conversa em ordem cronológica e as inclui na janela de contexto do LLM junto aos chunks recuperados pelo RAG.
+- **THEN** O backend persiste a mensagem do usuário, carrega as mensagens anteriores da conversa em ordem cronológica, inclui o histórico na janela de contexto do LLM e, ao término do streaming, persiste a resposta do assistente no banco.
 
 ### Requirement: Provedor de LLM Transparente e Invisível
 O backend deve utilizar o contrato compatível com OpenAI (suportando OpenRouter, AWS Bedrock Converse ou OpenAI) configurado na infraestrutura do sistema, sem expor opções de modelo ou provedor na interface do usuário.

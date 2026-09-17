@@ -47,6 +47,8 @@ system-rag-llm/
 
 ---
 
+
+
 ## 3. Diretrizes Arquiteturais
 
 1. **Arquitetura 100% Stateless:** Autenticação exclusivamente via tokens JWT emitidos pelo AWS Cognito. Sem sessões em memória no servidor.
@@ -59,7 +61,25 @@ system-rag-llm/
 
 ---
 
-## 4. Comandos de Validação e Infraestrutura
+<!-- caveman instructions -->
+Ative `/caveman full`
+<!-- caveman instructions -->
+
+<!-- ponytail instructions -->
+Ative `/ponytail full`
+<!-- ponytail instructions -->
+
+---
+
+## 4. Skills Disponíveis no Projeto
+
+- **[`simple-layered-architecture`](file:///.agent/skills/simple-layered-architecture/SKILL.md)**: Direciona a criação e organização de classes Java/Spring Boot no padrão em camadas simples (`Controller`, `Service`, `Repository`, `Entity`, `DTO/Record`), mantendo isolamento multitenancy e contratos DTO limpos.
+- **[`java-quality-gate`](file:///.agent/skills/java-quality-gate/SKILL.md)**: Garante testes unitários JUnit 5 + Mockito com 100% de line coverage (JaCoCo) e 100% mutation score (PITest) via `quality-gate.sh`.
+- **[`ponytail`](file:///.agent/skills/ponytail/SKILL.md)**: Foco na solução mais simples, enxuta e sem over-engineering.
+
+
+
+## 5. Comandos de Validação e Infraestrutura
 
 ```bash
 # Validar todas as especificações do OpenSpec

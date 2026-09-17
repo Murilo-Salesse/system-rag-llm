@@ -22,3 +22,7 @@
 # LocalStack and Postgres local data
 pgdata/
 localstack_data/
+
+# CodeGraph local index
+.codegraph/
+
