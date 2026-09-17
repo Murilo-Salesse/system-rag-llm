@@ -1,0 +1,37 @@
+services:
+  postgresql:
+    image: pgvector/pgvector:pg16
+    container_name: notebooklm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-notebooklm}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-notebooklm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  floci:
+    image: floci/floci:latest-compat
+    container_name: notebooklm-floci
+    restart: unless-stopped
+    environment:
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-notebooklm-sources}
+    ports:
+      - "4566:4566"
+    volumes:
+      - floci_data:/app/data
+      - ./init-s3.sh:/etc/floci/init/boot/init-s3.sh:ro
+      - ./init-cognito.sh:/etc/floci/init/boot/init-cognito.sh:ro
+
+volumes:
+  pgdata:
+  floci_data:
